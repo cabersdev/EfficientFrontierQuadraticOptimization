@@ -1,0 +1,51 @@
+# Ambiente virtuale
+venv/
+.env/
+
+# File di sistema
+.DS_Store
+Thumbs.db
+
+# File Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Dati
+data/processed/*
+data/raw/*
+!data/processed/.gitkeep
+!data/raw/.gitkeep
+
+# Log e file temporanei
+*.log
+*.sqlite
+*.parquet
+
+# Ambiente e configurazioni locali
+.env
+.env.local
+.secrets
+.vscode/
+.idea/
+
+# Test e coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# File generati da Jupyter
+*.pickle
+*.h5
+*.feather
+
+# File di cache
+.cache
+.mypy_cache/
