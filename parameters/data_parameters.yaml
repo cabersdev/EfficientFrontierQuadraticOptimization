@@ -8,6 +8,9 @@ max_retries: 3
 backoff: 2
 path_raw: "data/raw"
 path_processed: "data/processed"
+validation:
+  min_data_coverage: 0.9  # 90% dei dati richiesti
+  allowed_date_variance: 5 # giorni consentiti di differenza
 fields:
   - "Date"
   - "Open"
