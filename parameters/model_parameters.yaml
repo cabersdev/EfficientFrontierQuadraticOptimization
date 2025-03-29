@@ -10,3 +10,4 @@ optimization:
     max: 0.015 # 0.5% to 1.5% target returns
     steps: 20 # 20 steps between min and max
   risk_free_rate: 0.02 # 2% risk free rate
+  

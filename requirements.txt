@@ -6,6 +6,9 @@ scipy>=1.11.0             # Portfolio Optimization
 cvxpy>=1.1.15             # Portfolio Optimization
 scikit-learn>=1.0.2       # Portfolio Optimization
 pydantic>=1.10.0          # Data Validation
+retry
+pyarrow
+python-snappy
 
 # Visualizations
 matplotlib>=3.8.0         # Plotting of the frontier
