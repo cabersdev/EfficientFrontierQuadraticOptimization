@@ -1,17 +1,20 @@
-# Dipendenze core
-yfinance>=0.2.30          # Fetch dati da Yahoo Finance
+# Core dypendencies
+yfinance>=0.2.30          # Data Fetching
 pandas>=2.1.0
-numpy>=1.26.0             # Manipolazione dati
-scipy>=1.11.0             # Ottimizzazione portafogli
+numpy>=1.26.0             # Data Manipulation
+scipy>=1.11.0             # Portfolio Optimization
+cvxpy>=1.1.15             # Portfolio Optimization
+scikit-learn>=1.0.2       # Portfolio Optimization
+pydantic>=1.10.0          # Data Validation
 
-# Visualizzazione
-matplotlib>=3.8.0         # Plotting della frontiera
+# Visualizations
+matplotlib>=3.8.0         # Plotting of the frontier
 seaborn>=0.13.0
 plotly>=5.18.0
 ipywidgets>=8.1.1
 
-# Gestione configurazioni
-pyyaml>=6.0.1             # Lettura file YAML
+# Configuration
+pyyaml>=6.0.1             # Configuration file parsing
 
 # Testing
-pytest>=7.4.0             # Esecuzione test
+pytest>=7.4.0             # Test execution
