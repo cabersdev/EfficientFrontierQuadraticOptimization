@@ -1,22 +1,15 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 import numpy as np
 import pandas as pd 
-import scipy 
-import yaml
-import cvxpy
 from pydantic import BaseModel, ConfigDict, Extra, HttpUrl, field_validator
 from sklearn.covariance import LedoitWolf
+from scipy.optimize import minimize
 from src.utils.helpers import load_config
 from src.utils.logger import setup_logger
 from src.data_pipelines.data_pipelines import execute_data_pipeline
 
-# Configurazione logger
 logger = setup_logger(name=__name__)
-
-# Caricamento e validazione configurazione
-config = load_config('parameters/data_parameters.yaml')
-params = MarkowitzOptimizer(**config)
 
 class CovarianceConfig(BaseModel):
     method: str = 'ledoit-wolf'
@@ -102,5 +95,67 @@ class MarkowitzOptimizer(BaseModel):
     
     def _portfolio_volatility(self, weights: np.array) -> float:
         return np.sqrt(weights.T @ self.cov_matrix @ weights)
-
     
+    def efficient_frontier(self) -> List[Dict[str, Any]]:
+        targets = np.linspace(
+            self.config.optimization.target_return['min'],
+            self.config.optimization.target_return['max'],
+            self.config.optimization.target_return['step']
+        )
+
+        frontier = []
+        for target in targets:
+            results = self._optimize(target)
+            if results['success']:
+                frontier.append({
+                    'weights': results['w'],
+                    'return': target,
+                    'volatility': results['fun']
+                })
+        return frontier
+    
+    def _optimize(self, target_return: float) -> Dict[str, Any]:
+        constraints = [
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w: self._portfolio_return(w) - target_return}
+        ]
+
+        bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
+
+        result = minimize(
+            self._portfolio_volatility,
+            x0 = np.array([1/len(self.returns.columns)] * len(self.returns.columns)),
+            method='SLSQP',
+            bounds=bounds,
+            constraints=constraints
+        )
+
+        return {
+            'success': result.success,
+            'w': result.w,
+            'fun': result.fun
+        }
+
+        def max_sharpe_ratio(self) -> Dict[str, Any]:
+            def negative_sharpe(w):
+                ret = self._portfolio_return(w)
+                vol = self._portfolio_volatility(w)
+                return - (ret - self.config.optimization.risk_free_rate) / vol
+            
+            constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
+            bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
+
+            result = minimize(
+                negative_sharpe,
+                x0 = np.array([1/len(self.returns.columns)] * len(self.returns.columns)),
+                method='SLSQP',
+                bounds=bounds,
+                constraints=constraints
+            )
+
+            return {
+                'weights': result.x,
+                'return': self._portfolio_return(result.x),
+                'volatility': self._portfolio_volatility(result.x),
+                'sharpe_ratio': -result.fun
+            }
