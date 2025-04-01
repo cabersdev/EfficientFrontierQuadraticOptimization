@@ -5,7 +5,7 @@ import pandas as pd
 import scipy 
 import yaml
 import cvxpy
-import pydantic
+from pydantic import BaseModel, HttpUrl, field_validator
 from sklearn.covariance import LedoitWolf
 from src.utils.helpers import load_config
 from src.utils.logger import setup_logger
@@ -14,28 +14,25 @@ from src.data_pipelines.data_pipelines import execute_data_pipeline
 # Configurazione logger
 logger = setup_logger(name=__name__)
 
+# Caricamento e validazione configurazione
+config = load_config('parameters/data_parameters.yaml')
+params = MarkowitzOptimizer(**config)
 
-config_data = load_config('parameters/data_parameters.yaml')
-config_model = load_config('parameters/model_parameters.yaml')
+class CovarianceConfig(BaseModel):
+    method: str = 'ledoit-wolf'
+    shrinkage_target: str = 'constant_variance'
 
-PARAMETERS: Dict[str, Any] = {
-    'tickers': config_data['tickers'],
-    'covariance': {
-        'method': config_model['covariance']['method'],
-        'shrinkage_target': config_model['covariance']['shrinkage_target']
-    },
-    'optimization': {
-        'min_weight': config_model['optimization']['min_weight'],
-        'max_weight': config_model['optimization']['max_weight'],
-        'target_returns': np.linspace(
-            config_model['optimization']['target_returns']['min'],
-            config_model['optimization']['target_returns']['max'],
-            config_model['optimization']['target_returns']['steps']
-        ),
-        'risk_free_rate': config_model['optimization']['risk_free_rate']
-    }
-}
+    @field_validator('method')
+    @classmethod
+    def validate_method(cls, value: str) -> str:
+        if value not in ['ledoit-wolf', 'empirical']:
+            raise ValueError("Metodo di stima della matrice di covarianza non valido")
+        return value
 
-processed_data = execute_data_pipeline()
-
-
+    @field_validator('shrinkage_target')
+    @classmethod
+    def validate_target(cls, value: str) -> str:
+        if value not in ['constant_variance', 'single_factor', 'constant_correlation']:
+            raise ValueError("Target di shrinkage non valido")
+        return value
+    
