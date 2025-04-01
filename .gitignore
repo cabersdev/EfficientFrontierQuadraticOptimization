@@ -18,11 +18,7 @@ build/
 .ipynb_checkpoints/
 *.ipynb
 
-# Dati
-data/processed/*
-data/raw/*
-!data/processed/.gitkeep
-!data/raw/.gitkeep
+
 
 # Log e file temporanei
 *.log
