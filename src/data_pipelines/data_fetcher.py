@@ -78,7 +78,7 @@ def fetch_data(ticker: str) -> Optional[pd.DataFrame]:
         logger.exception(f"Unexpected error fetching {ticker}")
         return None
 
-def save_data(data: pd.DataFrame, ticker: str) -> bool:
+def save_data_parquet(data: pd.DataFrame, ticker: str) -> bool:
     """Salva i dati in formato parquet con compressione"""
     try:
         params.path_raw.mkdir(parents=True, exist_ok=True)
@@ -96,12 +96,26 @@ def save_data(data: pd.DataFrame, ticker: str) -> bool:
     except Exception as e:
         logger.error(f"Error saving {ticker}: {str(e)}")
         return False
+    
+def save_data_csv(data: pd.DataFrame, ticker: str) -> bool:
+    """Salva i dati in formato CSV"""
+    try:
+        params.path_raw.mkdir(parents=True, exist_ok=True)
+        output_file = params.path_raw / f"{ticker}.csv"
+        
+        data.to_csv(output_file, index=False)
+        
+        logger.info(f"Data saved successfully for {ticker}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving {ticker}: {str(e)}")
+        return False
 
 def process_ticker(ticker: str) -> bool:
     """Pipeline completa per un singolo ticker"""
     data = fetch_data(ticker)
     if data is not None:
-        return save_data(data, ticker)
+        return save_data_parquet(data, ticker) and save_data_csv(data, ticker)
     return False
 
 def main():
