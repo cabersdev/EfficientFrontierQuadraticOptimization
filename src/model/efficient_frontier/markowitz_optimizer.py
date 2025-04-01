@@ -61,7 +61,7 @@ class ModelConfig(BaseModel):
     optimization: OptimizationConfig
     model_config = ConfigDict(extra=Extra.forbid)
     
-class MarkowitzOptimizer(BaseModel):
+class MarkowitzOptimizer:
     def __init__(self, returns: pd.DataFrame, config_path: Path = Path('parameters/optimizer_parameters.yaml')):
         self.returns = returns 
         self.config = self._load_config(config_path)
