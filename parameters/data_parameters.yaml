@@ -18,3 +18,4 @@ fields:
   - "Low"
   - "Close"
   - "Volume"
+format: "csv"

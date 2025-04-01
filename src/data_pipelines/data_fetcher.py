@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 from pydantic import BaseModel, HttpUrl, field_validator
 from datetime import datetime
+from requests.exceptions import RequestException
 from src.utils.helpers import load_config
 from src.utils.logger import setup_logger
 
@@ -26,6 +27,8 @@ class DataConfig(BaseModel):
     backoff: int = 2
     path_raw: Path = Path('data/raw')
     fields: list[str] = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+    format: str = 'csv'
+    strict_validation: bool = True
 
     @field_validator('start_date', 'end_date')
     @classmethod
@@ -48,35 +51,69 @@ def fetch_data(ticker: str) -> Optional[pd.DataFrame]:
         
         data = yf.download(
             tickers=ticker,
-            start=datetime.strptime(params.start_date, '%Y-%m-%d').strftime('%Y-%m-%d'),
-            end=datetime.strptime(params.end_date, '%Y-%m-%d').strftime('%Y-%m-%d'),
+            start=params.start_date,
+            end=params.end_date,
             interval=params.interval,
             progress=False,
             auto_adjust=params.auto_adjust,
-            threads=True
+            group_by='ticker'  # Modifica cruciale
         )
 
-        if data.empty:
-            logger.warning(f"No data found for {ticker}")
-            return None
+        # Gestione MultiIndex
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(1)  # Prendi il nome del ticker
+        else:
+            data.columns = [f"{col}_{ticker}" for col in data.columns]
 
-        # Pulizia e formattazione dati
-        data = data.reset_index()[params.fields]
-        data['Ticker'] = ticker  # Aggiunge colonna ticker
+        # Reset e pulizia
+        data = data.reset_index()
+        data.columns = data.columns.str.title()
         
-        # Validazione dati
-        if data.isnull().values.any():
-            logger.error(f"Missing values detected in {ticker}")
-            return None
-            
-        return data
+        # Aggiungi colonna ticker
+        data['Ticker'] = ticker
+        
+        # Rinomina colonne chiave
+        data = data.rename(columns={
+            f'Open_{ticker}': 'Open',
+            f'High_{ticker}': 'High',
+            f'Low_{ticker}': 'Low',
+            f'Close_{ticker}': 'Close',
+            f'Volume_{ticker}': 'Volume'
+        })[params.fields + ['Ticker']]
 
-    except yf.YFinanceError as e:
-        logger.error(f"YFinance error for {ticker}: {str(e)}")
-        return None
+        # Validazione tipi dati
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        numeric_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        data[numeric_cols] = data[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        
+        return data.dropna()
+
     except Exception as e:
-        logger.exception(f"Unexpected error fetching {ticker}")
+        logger.error(f"Errore su {ticker}: {str(e)}")
         return None
+    
+def validate_data(data: pd.DataFrame) -> bool:
+    """Validazione dati"""
+    required_columns = {
+        'Date': 'datetime64[ns]',
+        'Open': 'float64',
+        'High': 'float64',
+        'Low': 'float64',
+        'Close': 'float64',
+        'Volume': 'int64',
+        'Ticker': 'object'
+    }
+
+    if not all(col in data.columns for col in required_columns.keys()):
+        logger.error("Missing columns in data")
+        return False
+    
+    for col, dtype in required_columns.items():
+        if not np.issubdtype(data[col].dtype, np.dtype(dtype)):
+            logger.error(f"Invalid dtype for column {col}")
+            return False
+    
+    return True
 
 def save_data_parquet(data: pd.DataFrame, ticker: str) -> bool:
     """Salva i dati in formato parquet con compressione"""
@@ -103,7 +140,15 @@ def save_data_csv(data: pd.DataFrame, ticker: str) -> bool:
         params.path_raw.mkdir(parents=True, exist_ok=True)
         output_file = params.path_raw / f"{ticker}.csv"
         
-        data.to_csv(output_file, index=False)
+        # Formattazione per le date
+        data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
+
+        data.to_csv(
+            output_file,
+            index=False,
+            encoding='utf-8',
+            date_format='%Y-%m-%d'
+        )
         
         logger.info(f"Data saved successfully for {ticker}")
         return True
@@ -113,10 +158,32 @@ def save_data_csv(data: pd.DataFrame, ticker: str) -> bool:
 
 def process_ticker(ticker: str) -> bool:
     """Pipeline completa per un singolo ticker"""
-    data = fetch_data(ticker)
-    if data is not None:
-        return save_data_parquet(data, ticker) and save_data_csv(data, ticker)
-    return False
+    try:
+        data = fetch_data(ticker)
+
+        if data is None:
+            return False
+        
+        if params.strict_validation and not validate_data(data):
+            logger.error(f"Data validation failed for {ticker}")
+            return False
+        
+        # Conversione 
+        numeric_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        data[numeric_cols] = data[numeric_cols].apply(pd.to_numeric)
+
+        if params.format == 'csv':
+            return save_data_csv(data, ticker)
+        elif params.format == 'parquet':
+            return save_data_parquet(data, ticker)
+        else:
+            logger.error(f"Invalid format: {params.format}")
+            return False
+    
+    except Exception as e:
+        logger.error(f"Error processing {ticker}: {str(e)}")
+        return False
+
 
 def main():
     """Esecuzione parallela con ThreadPool"""
