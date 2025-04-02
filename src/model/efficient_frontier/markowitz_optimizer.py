@@ -5,8 +5,8 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Extra, HttpUrl, field_validator
 from sklearn.covariance import LedoitWolf
 from scipy.optimize import minimize
-from src.utils.helpers import load_config
-from src.utils.logger import setup_logger
+from utils.helpers import load_config
+from utils.logger import setup_logger
 
 logger = setup_logger(name=__name__)
 
@@ -77,8 +77,8 @@ class MarkowitzOptimizer:
         if self.config.covariance.method == 'ledoit-wolf':
             lw = LedoitWolf(
                 assume_centered=True,
-                block_size=100,
-                shrinkage=self.config.covariance.shrinkage_target
+                block_size=1000,
+                #shrinkage=self.config.covariance.shrinkage_target
             )
             lw.fit(self.returns)
             return pd.DataFrame(lw.covariance_, index=self.returns.columns, columns=self.returns.columns)
@@ -112,19 +112,22 @@ class MarkowitzOptimizer:
                     'return': target,
                     'volatility': results['fun']
                 })
+            else:
+                logger.warning(f"Ottimizzazione fallita per target di ritorno: {target}")
         return frontier
     
     def _optimize(self, target_return: float) -> Dict[str, Any]:
         constraints = [
             {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
-            {'type': 'eq', 'fun': lambda w: self._portfolio_return(w) - target_return}
+            {'type': 'eq', 'fun': lambda w: self._portfolio_return(w) - target_return},
+            {'type': 'ineq', 'fun': lambda w: w - self.config.optimization.min_weight}
         ]
 
         bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
 
         result = minimize(
             self._portfolio_volatility,
-            x0 = np.array([1/len(self.returns.columns)] * len(self.returns.columns)),
+            x0 = np.random.dirichlet(np.ones(len(self.returns.columns)), size=1).flatten(),
             method='SLSQP',
             bounds=bounds,
             constraints=constraints
@@ -132,30 +135,30 @@ class MarkowitzOptimizer:
 
         return {
             'success': result.success,
-            'w': result.w,
+            'w': result.x,
             'fun': result.fun
         }
 
-        def max_sharpe_ratio(self) -> Dict[str, Any]:
-            def negative_sharpe(w):
-                ret = self._portfolio_return(w)
-                vol = self._portfolio_volatility(w)
-                return - (ret - self.config.optimization.risk_free_rate) / vol
+    def max_sharpe_ratio(self) -> Dict[str, Any]:
+        def negative_sharpe(w):
+            ret = self._portfolio_return(w)
+            vol = self._portfolio_volatility(w)
+            return - (ret - self.config.optimization.risk_free_rate) / vol
             
-            constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
-            bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
+        constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
+        bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
 
-            result = minimize(
-                negative_sharpe,
-                x0 = np.array([1/len(self.returns.columns)] * len(self.returns.columns)),
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints
-            )
+        result = minimize(
+            negative_sharpe,
+            x0 = np.array([1/len(self.returns.columns)] * len(self.returns.columns)),
+            method='SLSQP',
+            bounds=bounds,
+            constraints=constraints
+        )
 
-            return {
-                'weights': result.x,
-                'return': self._portfolio_return(result.x),
-                'volatility': self._portfolio_volatility(result.x),
-                'sharpe_ratio': -result.fun
-            }
+        return {
+            'weights': result.x,
+            'return': self._portfolio_return(result.x),
+            'volatility': self._portfolio_volatility(result.x),
+            'sharpe_ratio': -result.fun
+        }

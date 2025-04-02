@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Optional, List, Dict, Any
 from pathlib import Path
-from src.utils.logger import setup_logger
+from utils.logger import setup_logger
 
 logger = setup_logger(name=__name__)
 class Visualizer:
