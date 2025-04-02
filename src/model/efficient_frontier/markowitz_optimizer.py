@@ -7,7 +7,6 @@ from sklearn.covariance import LedoitWolf
 from scipy.optimize import minimize
 from src.utils.helpers import load_config
 from src.utils.logger import setup_logger
-from src.data_pipelines.data_pipelines import execute_data_pipeline
 
 logger = setup_logger(name=__name__)
 
@@ -62,7 +61,7 @@ class ModelConfig(BaseModel):
     model_config = ConfigDict(extra=Extra.forbid)
     
 class MarkowitzOptimizer:
-    def __init__(self, returns: pd.DataFrame, config_path: Path = Path('parameters/optimizer_parameters.yaml')):
+    def __init__(self, returns: pd.DataFrame, config_path: Path = Path('parameters/model_parameters.yaml')):
         self.returns = returns 
         self.config = self._load_config(config_path)
         self.expected_returns = self.returns.mean()
@@ -71,6 +70,7 @@ class MarkowitzOptimizer:
 
     def _load_config(self, config_path: Path) -> Dict[str, Any]:
         raw_config = load_config(config_path)
+        logger.info(f"Configurazione caricata da: {config_path}")
         return ModelConfig(**raw_config)
 
     def _calculate_covariance(self) -> pd.DataFrame:

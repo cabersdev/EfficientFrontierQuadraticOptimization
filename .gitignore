@@ -16,14 +16,18 @@ build/
 
 # Notebook
 .ipynb_checkpoints/
-*.ipynb
+
+# Data
+data/raw/
+data/processed/
+*.csv
+*.parquet
 
 
 
 # Log e file temporanei
 *.log
 *.sqlite
-*.parquet
 
 # Ambiente e configurazioni locali
 .env
