@@ -1,12 +1,12 @@
 import pandas as pd
 import pathlib as pa
 from typing import List, Dict, Optional
-import logging
+from logging import logger
 from data_cleaner import DataCleaner
 from data_validation import DataValidator
+from utils.logger import setup_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+setup_logger(name=__name__)
 
 # 1. Data Loader (già visto)
 class DataLoader:

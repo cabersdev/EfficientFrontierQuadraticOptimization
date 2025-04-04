@@ -49,12 +49,12 @@ class DataValidator:
         if 'negative_prices' in checks:
             results['negative_prices'] = self.check_negative_prices()
         if 'date_range' in checks:
-            results['date_range'] = self.check_date_range("2010-01-01", "2023-12-31")  # Esempio
+            results['date_range'] = self.check_date_range()
         
         if self.errors:
             print("\n".join(self.errors))
         else:
-            print("✅ Tutti i controlli superati.")
+            print("Tutti i controlli superati.")
         
         return results
 
