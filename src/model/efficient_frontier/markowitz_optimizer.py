@@ -74,6 +74,7 @@ class MarkowitzOptimizer:
         return ModelConfig(**raw_config)
 
     def _calculate_covariance(self) -> pd.DataFrame:
+        logger.info("Stima della matrice di covarianza")
         if self.config.covariance.method == 'ledoit-wolf':
             lw = LedoitWolf(
                 assume_centered=True,
@@ -81,42 +82,51 @@ class MarkowitzOptimizer:
                 #shrinkage=self.config.covariance.shrinkage_target
             )
             lw.fit(self.returns)
+            logger.info("Matrice di covarianza stimata con Ledoit-Wolf")
             return pd.DataFrame(lw.covariance_, index=self.returns.columns, columns=self.returns.columns)
         return self.returns.cov()
     
     def _validate_inputs(self):
+        logger.info("Validazione dei dati di input")
         if self.cov_matrix.shape != (len(self.returns.columns), len(self.returns.columns)):
             raise ValueError("Matrice di covarianza non valida")
         if not np.allclose(self.cov_matrix, self.cov_matrix.T):
             raise ValueError("Matrice di covarianza non simmetrica")
         
     def _portfolio_return(self, weights: np.array) -> float:
+        logger.info("Calcolo del rendimento atteso del portafoglio")
         return np.dot(weights, self.expected_returns)
     
     def _portfolio_volatility(self, weights: np.array) -> float:
+        logger.info("Portafoglio di volatilità calcolata")
         return np.sqrt(weights.T @ self.cov_matrix @ weights)
     
     def efficient_frontier(self) -> List[Dict[str, Any]]:
+        logger.info("Calcolo della frontiera efficiente")
         targets = np.linspace(
             self.config.optimization.target_return['min'],
             self.config.optimization.target_return['max'],
             self.config.optimization.target_return['step']
         )
+        logger.info(f"Target di ritorno: {targets}")
 
         frontier = []
         for target in targets:
             results = self._optimize(target)
             if results['success']:
+                logger.info(f"Ottimizzazione riuscita per target di ritorno: {target}")
                 frontier.append({
                     'weights': results['w'],
                     'return': target,
                     'volatility': results['fun']
                 })
+                logger.info(f"Ottimizzazione riuscita per target di ritorno: {target}")
             else:
                 logger.warning(f"Ottimizzazione fallita per target di ritorno: {target}")
         return frontier
     
     def _optimize(self, target_return: float) -> Dict[str, Any]:
+        logger.info(f"Ottimizzazione per target di ritorno: {target_return}")
         constraints = [
             {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
             {'type': 'eq', 'fun': lambda w: self._portfolio_return(w) - target_return},
@@ -132,6 +142,8 @@ class MarkowitzOptimizer:
             bounds=bounds,
             constraints=constraints
         )
+        logger.info(f"Ottimizzazione completata: {result.success}")
+
 
         return {
             'success': result.success,
@@ -140,9 +152,11 @@ class MarkowitzOptimizer:
         }
 
     def max_sharpe_ratio(self) -> Dict[str, Any]:
+        logger.info("Calcolo del massimo Sharpe Ratio")
         def negative_sharpe(w):
             ret = self._portfolio_return(w)
             vol = self._portfolio_volatility(w)
+            logger.info(f"Rendimento: {ret}, Volatilità: {vol}")
             return - (ret - self.config.optimization.risk_free_rate) / vol
             
         constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
@@ -155,7 +169,7 @@ class MarkowitzOptimizer:
             bounds=bounds,
             constraints=constraints
         )
-
+        logger.info(f"Massimo Sharpe Ratio calcolato: {-result.fun}")
         return {
             'weights': result.x,
             'return': self._portfolio_return(result.x),
