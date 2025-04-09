@@ -113,7 +113,8 @@ class MarkowitzOptimizer:
         frontier = []
         for target in targets:
             results = self._optimize(target)
-            if results['success']:
+            logger.info(f"Risultato dell'ottimizzazione {results}")
+            if results:
                 logger.info(f"Ottimizzazione riuscita per target di ritorno: {target}")
                 frontier.append({
                     'weights': results['w'],
