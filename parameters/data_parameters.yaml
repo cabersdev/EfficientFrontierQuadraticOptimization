@@ -1,5 +1,5 @@
-tickers: ["AAPL", "MSFT", "GOOGL"]
-start_date: "2020-01-01"
+tickers: ["META", "AMZN", "LMT", "BAESY", "NVS", "JNJ", "XOM", "SHEL", "CNI", "VALE", "SAP", "ASML", "TM", "BHP"]
+start_date: "2010-01-01"
 end_date: "2023-12-31"
 interval: "1d"
 auto_adjust: true

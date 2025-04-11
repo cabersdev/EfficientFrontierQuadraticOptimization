@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd 
 from pydantic import BaseModel, ConfigDict, Extra, HttpUrl, field_validator
 from sklearn.covariance import LedoitWolf
-from scipy.optimize import minimize
+from scipy.optimize import minimize, Bounds
 from utils.helpers import load_config
 from utils.logger import setup_logger
 
@@ -12,6 +12,7 @@ logger = setup_logger(name=__name__)
 
 class CovarianceConfig(BaseModel):
     method: str = 'ledoit-wolf'
+    shrinkage: float | None = None
     shrinkage_target: str = 'constant_variance'
 
     @field_validator('method')
@@ -77,10 +78,12 @@ class MarkowitzOptimizer:
         logger.info("Stima della matrice di covarianza")
         if self.config.covariance.method == 'ledoit-wolf':
             lw = LedoitWolf(
-                assume_centered=True,
+                assume_centered=False,
                 block_size=1000,
+                #shrinkage_=self.config.covariance.shrinkage
                 #shrinkage=self.config.covariance.shrinkage_target
             )
+
             lw.fit(self.returns)
             logger.info("Matrice di covarianza stimata con Ledoit-Wolf")
             return pd.DataFrame(lw.covariance_, index=self.returns.columns, columns=self.returns.columns)
@@ -131,17 +134,23 @@ class MarkowitzOptimizer:
         constraints = [
             {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
             {'type': 'eq', 'fun': lambda w: self._portfolio_return(w) - target_return},
-            {'type': 'ineq', 'fun': lambda w: w - self.config.optimization.min_weight}
         ]
 
-        bounds = [(self.config.optimization.min_weight, self.config.optimization.max_weight)] * len(self.returns.columns)
+        initial_guess = self._min_varance_portfolio()
+
+        bounds = Bounds(
+            self.config.optimization.min_weight,
+            self.config.optimization.max_weight,
+            keep_feasible=True,
+        )
 
         result = minimize(
             self._portfolio_volatility,
             x0 = np.random.dirichlet(np.ones(len(self.returns.columns)), size=1).flatten(),
             method='SLSQP',
             bounds=bounds,
-            constraints=constraints
+            constraints=constraints,
+            options={'maxiter': 1000, 'verbose': 0}
         )
         logger.info(f"Ottimizzazione completata: {result.success}")
 
@@ -151,6 +160,18 @@ class MarkowitzOptimizer:
             'w': result.x,
             'fun': result.fun
         }
+    def _min_varance_portfolio(self) -> np.array:
+        logger.info("Calcolo del portafoglio a minima varianza")
+        n = len(self.returns.columns)
+        constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
+        result = minimize(
+            self._portfolio_volatility,
+            x0 = np.ones(n) / n,
+            method='SLSQP',
+            bounds=[(0, 1)] * n,
+            constraints=constraints
+        )
+        return result.x
 
     def max_sharpe_ratio(self) -> Dict[str, Any]:
         logger.info("Calcolo del massimo Sharpe Ratio")
