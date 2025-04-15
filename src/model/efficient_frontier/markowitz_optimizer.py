@@ -7,6 +7,8 @@ from sklearn.covariance import LedoitWolf
 from scipy.optimize import minimize, Bounds
 from utils.helpers import load_config
 from utils.logger import setup_logger
+from pathlib import Path #aggiunta per pipeline
+from pipeline import run_pipeline #aggiunta per pipeline
 
 logger = setup_logger(name=__name__)
 
@@ -198,3 +200,56 @@ class MarkowitzOptimizer:
             'volatility': self._portfolio_volatility(result.x),
             'sharpe_ratio': -result.fun
         }
+    
+    if __name__ == "__main__":
+    # Parametri configurabili per la pipeline e il modello
+    PIPELINE_PARAMS = {
+        'tickers': ['AAPL', 'GOOGL', 'MSFT'],
+        'input_dir': "../data/raw",
+        'output_dir': "../data/processed"
+    }
+    
+    # 1. Esegui la pipeline di dati
+    logger.info("Avvio della pipeline di dati...")
+    try:
+        run_pipeline(**PIPELINE_PARAMS)
+        logger.info("Pipeline di dati completata con successo")
+    except Exception as e:
+        logger.error(f"Errore durante l'esecuzione della pipeline: {str(e)}")
+        raise
+
+    # 2. Carica i dati puliti
+    output_path = Path(PIPELINE_PARAMS['output_dir']) / "cleaned_stocks.parquet"
+    try:
+        cleaned_data = pd.read_parquet(output_path)
+        logger.info(f"Dati puliti caricati da {output_path}")
+    except Exception as e:
+        logger.error(f"Errore nel caricamento dei dati puliti: {str(e)}")
+        raise
+
+    # 3. Calcola i rendimenti
+    returns = cleaned_data.pct_change().dropna()
+    if returns.empty:
+        logger.error("Nessun dato disponibile dopo il calcolo dei rendimenti")
+        raise ValueError("Dataset dei rendimenti vuoto")
+
+    # 4. Esegui l'ottimizzazione
+    try:
+        optimizer = MarkowitzOptimizer(returns)
+        logger.info("Modello Markowitz inizializzato correttamente")
+        
+        # Esempio: Calcola frontiera efficiente e Sharpe Ratio
+        frontier = optimizer.efficient_frontier()
+        max_sharpe = optimizer.max_sharpe_ratio()
+        
+        # Esempio: Salva risultati
+        results_dir = Path("../results")
+        results_dir.mkdir(exist_ok=True)
+        
+        pd.DataFrame([max_sharpe]).to_csv(results_dir / "optimal_portfolio.csv")
+        logger.info(f"Risultati salvati in {results_dir}")
+        
+    except Exception as e:
+        logger.error(f"Errore durante l'ottimizzazione: {str(e)}")
+        raise
+    
