@@ -9,12 +9,12 @@ from utils.logger import setup_logger
 setup_logger(name=__name__)
 
 # 1. Data Loader (già visto)
-class DataLoader:
+class DataLoader: # Carica i dati storici di azioni 
     def __init__(self, data_path: str, tickers: List[str]):
         self.data_path = pa.Path(data_path)
         self.tickers = tickers
 
-    def load(self) -> pd.DataFrame:
+    def load(self) -> pd.DataFrame: # Per ogni ticker cerca il file CSV corrispondente
         dfs = []
         for ticker in self.tickers:
             try:
@@ -54,17 +54,17 @@ def run_pipeline(tickers: List[str], input_dir: str, output_dir: str):
     # Step 2: Clean
     cleaned_data = (
         DataCleaner(data)
-        .remove_outliers(threshold=3.0)
+        .remove_outliers(threshold=3.0) # Rimozione outliers
         .normalize(method='minmax') #oppure Z-score
         .get_data()
     )
 
-    # Step 3: Validate
+    # Step 3: Validate, verifica l'integrità dei dati puliti
     validator = DataValidator(cleaned_data)
     if not validator.run_checks():
         raise ValueError("Validazione fallita. Interrompo la pipeline.")
 
-    # Step 4: Export
+    # Step 4: Export, caricamento dei dati (puliti)
     output_path = pa.Path(output_dir) / "cleaned_stocks.parquet"
     DataExporter.to_parquet(cleaned_data, output_path)
 

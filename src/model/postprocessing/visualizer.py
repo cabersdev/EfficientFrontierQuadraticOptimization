@@ -1,3 +1,4 @@
+##visualizzazione grafica di risultati di ottimizzazione di portafoglio finanziario
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Optional, List, Dict, Any
@@ -18,9 +19,11 @@ class Visualizer:
     ) -> None:
         frontier_data = self.optimizer.efficient_frontier()
         if not frontier_data:
+            logger.error("Efficient frontier vuota: nessun dato disponibile")
             raise ValueError("Nessun dato disponibile per la frontiera efficiente")
 
         sharpe_data = self.optimizer.max_sharpe_ratio()
+        logger.info(f"sharpe_data: {sharpe_data}")
 
         returns = [p['return'] for p in frontier_data]
         volatilities = [p['volatility'] for p in frontier_data]
@@ -34,6 +37,7 @@ class Visualizer:
             alpha=0.7,
             label='Frontiera Efficiente'
         )
+        logger.info(f:: "scaratter: {volatilities}, {returns}")
 
         plt.scatter(
             sharpe_data['volatility'],
@@ -59,6 +63,7 @@ class Visualizer:
         plt.grid(True)
 
         if output_path:
+            logger.info("Salvataggio grafico efficient frontier in %s", output_path)
             plt.savefig(output_path, bbox_inches='tight')
             plt.close()
             logger.info(f"Grafico salvato in: {output_path}")
@@ -75,6 +80,7 @@ class Visualizer:
         
         assets = list(weights.keys())
         values = list(weights.values())
+        logger.info("Assets da plottare: %s", ", ".join(assets))
 
         plt.bar(assets, values)
         plt.title('Distribuzione Pesi Portafoglio')
@@ -84,7 +90,9 @@ class Visualizer:
         plt.grid(True, axis='y')
 
         if output_path:
+            logger.info("Salvataggio grafico pesi portafoglio in %s", output_path)
             plt.savefig(output_path, bbox_inches='tight')
             plt.close()
         else:
+            logger.info("Visualizzazione a schermo del grafico pesi portafoglio")
             plt.show()
