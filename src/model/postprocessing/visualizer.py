@@ -26,8 +26,11 @@ class Visualizer:
         logger.info(f"sharpe_data: {sharpe_data}")
 
         returns = [p['return'] for p in frontier_data]
-        volatilities = [p['volatility'] for p in frontier_data]
+        logger.info(f"Ritorni: {returns}")
 
+        volatilities = [p['volatility'] for p in frontier_data]
+        logger.info(f"Ritorni: {returns}")
+        
         plt.figure(figsize=figsize, dpi=dpi)
         
         plt.scatter(
@@ -37,7 +40,7 @@ class Visualizer:
             alpha=0.7,
             label='Frontiera Efficiente'
         )
-        logger.info(f:: "scaratter: {volatilities}, {returns}")
+        logger.info(f:"scaratter: {volatilities}, {returns}")
 
         plt.scatter(
             sharpe_data['volatility'],
